@@ -1,166 +1,219 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from "react"
-import {
-  getAllUsers,
-  resetAllData,
-  getStorageSchema,
-  getFeaturedBuilders,
-  addUpvote,
-  incrementViewCount,
-  getCurrentUser,
-} from "@/lib/storage"
-import { initializeMockData } from "@/lib/init-mock-data"
 import Navigation from "@/components/navigation"
+import { 
+  getAllUsers, 
+  incrementViewCount,
+  addUpvote,
+  canUpvote,
+  clearLocalAppData
+} from "@/lib/storage"
+import { supabase } from "@/lib/supabaseClient"
+import { 
+  addProjectToSupabase, 
+  getUserProjectsFromSupabase,
+  addProjectUpvoteToSupabase,
+  incrementProjectViewsInSupabase
+} from "@/lib/projectHelpers"
 
 export default function DevToolsPage() {
-  const [schema, setSchema] = useState<any>(null)
-  const [featured, setFeatured] = useState<any[]>([])
-  const [mounted, setMounted] = useState(false)
-  const [logs, setLogs] = useState<string[]>([])
+  const [users, setUsers] = useState<any[]>([])
+  const [testResult, setTestResult] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-    updateSchema()
-    setFeatured(getFeaturedBuilders())
+    const fetchUsers = async () => {
+      const allUsers = await getAllUsers()
+      setUsers(allUsers)
+    }
+    
+    fetchUsers()
   }, [])
 
-  const updateSchema = () => {
-    const schemaData = getStorageSchema()
-    setSchema(schemaData)
-  }
-
-  const addLog = (message: string) => {
-    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`])
-  }
-
-  const handleSeedMockData = () => {
-    resetAllData()
-    initializeMockData()
-    updateSchema()
-    setFeatured(getFeaturedBuilders())
-    addLog("Mock data seeded successfully")
-  }
-
-  const handleResetData = () => {
-    if (confirm("Are you sure? This will delete all data.")) {
-      resetAllData()
-      updateSchema()
-      setFeatured([])
-      addLog("All data reset")
+  const runTest = async (testName: string, testFn: () => Promise<any>) => {
+    setIsLoading(true)
+    setTestResult(`Running ${testName}...`)
+    
+    try {
+      const result = await testFn()
+      setTestResult(`✅ ${testName} - Success: ${JSON.stringify(result)}`)
+    } catch (error) {
+      setTestResult(`❌ ${testName} - Error: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleSimulateTraffic = () => {
-    const users = getAllUsers()
-    if (users.length === 0) {
-      addLog("No users to simulate traffic for")
-      return
+  const testSupabaseConnection = async () => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('id').limit(1)
+      if (error) throw error
+      return { message: "Connected successfully", data: data?.length || 0 }
+    } catch (error) {
+      throw new Error(`Connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
 
-    const currentUser = getCurrentUser()
-    const visitorId = currentUser?.id || "simulator"
-    let eventCount = 0
+  const testProfileFetch = async () => {
+    const users = await getAllUsers()
+    return { message: "Fetched users", count: users.length }
+  }
 
-    for (let i = 0; i < 100; i++) {
-      const randomUser = users[Math.floor(Math.random() * users.length)]
-      if (Math.random() > 0.5) {
-        incrementViewCount(randomUser.id)
-        eventCount++
-      } else {
-        addUpvote(randomUser.id, visitorId)
-        eventCount++
+  const testProjectFetch = async () => {
+    if (users.length === 0) throw new Error("No users available")
+    const randomUser = users[Math.floor(Math.random() * users.length)]
+    const projects = await getUserProjectsFromSupabase(randomUser.id)
+    return { message: "Fetched projects", user: randomUser.username, projects: projects.data?.length || 0 }
+  }
+
+  const testProjectCreation = async () => {
+    if (users.length === 0) throw new Error("No users available")
+    const randomUser = users[Math.floor(Math.random() * users.length)]
+    const project = {
+      title: "Test Project",
+      description: "A test project created by dev tools",
+      link: "https://example.com"
+    }
+    const result = await addProjectToSupabase(randomUser.id, project)
+    return { message: "Created project", user: randomUser.username, success: result.success }
+  }
+
+  const testViewIncrement = async () => {
+    if (users.length === 0) throw new Error("No users available")
+    const randomUser = users[Math.floor(Math.random() * users.length)]
+    await incrementViewCount(randomUser.id)
+    return { message: "Incremented view count", user: randomUser.username }
+  }
+
+  const testProjectViewIncrement = async () => {
+    // First get a project to test with
+    if (users.length === 0) throw new Error("No users available")
+    
+    for (const user of users) {
+      const projects = await getUserProjectsFromSupabase(user.id)
+      if (projects.success && projects.data && projects.data.length > 0) {
+        const randomProject = projects.data[Math.floor(Math.random() * projects.data.length)]
+        await incrementProjectViewsInSupabase(randomProject.id)
+        return { message: "Incremented project view count", project: randomProject.title }
       }
     }
-
-    updateSchema()
-    addLog(`Simulated ${eventCount} traffic events`)
+    
+    throw new Error("No projects available to test with")
   }
 
-  if (!mounted) return null
+  const testProjectUpvote = async () => {
+    // First get a project to test with
+    if (users.length === 0) throw new Error("No users available")
+    
+    for (const user of users) {
+      const projects = await getUserProjectsFromSupabase(user.id)
+      if (projects.success && projects.data && projects.data.length > 0) {
+        const randomProject = projects.data[Math.floor(Math.random() * projects.data.length)]
+        const randomUserId = users[Math.floor(Math.random() * users.length)].id
+        const result = await addProjectUpvoteToSupabase(randomProject.id, randomUserId)
+        return { message: "Upvoted project", project: randomProject.title, success: result.success }
+      }
+    }
+    
+    throw new Error("No projects available to test with")
+  }
 
   return (
     <div className="w-full min-h-screen bg-[#F7F5F3]">
       <Navigation />
-
       <div className="max-w-4xl mx-auto px-6 py-12">
-        <h1 className="text-4xl font-serif text-[#37322F] mb-8">Developer Tools</h1>
-
-        {/* Schema Info */}
-        <div className="bg-white p-6 rounded-lg border border-[#E0DEDB] mb-8">
-          <h2 className="text-xl font-semibold text-[#37322F] mb-4">LocalStorage Schema</h2>
-          {schema && (
-            <div className="space-y-2 text-sm font-mono text-[#605A57]">
-              <p>Schema Version: {schema.schemaVersion}</p>
-              <p>Total Users: {schema.totalUsers}</p>
-              <p>Storage Size: {(schema.storageSize / 1024).toFixed(2)} KB</p>
-              {schema.sampleUser && (
-                <details className="mt-4">
-                  <summary className="cursor-pointer font-semibold">Sample User Schema</summary>
-                  <pre className="mt-2 bg-[#F7F5F3] p-4 rounded overflow-auto text-xs">
-                    {JSON.stringify(schema.sampleUser, null, 2)}
-                  </pre>
-                </details>
-              )}
+        <h1 className="text-3xl font-bold text-[#37322F] mb-8">Developer Tools</h1>
+        
+        <div className="bg-white rounded-lg border border-[#E0DEDB] p-6 mb-8">
+          <h2 className="text-xl font-semibold text-[#37322F] mb-4">Supabase Integration Tests</h2>
+          
+          <div className="space-y-4">
+            <button
+              onClick={() => {
+                clearLocalAppData()
+                setTestResult('✅ Cleared local app data and session cache')
+              }}
+              disabled={isLoading}
+              className="w-full px-4 py-2 border border-[#E0DEDB] text-[#37322F] rounded-lg hover:bg-white transition disabled:opacity-50"
+            >
+              Clear Local App Data
+            </button>
+            <button
+              onClick={() => runTest("Supabase Connection", testSupabaseConnection)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-[#37322F] text-white rounded-lg hover:bg-[#2a2520] transition disabled:opacity-50"
+            >
+              Test Supabase Connection
+            </button>
+            
+            <button
+              onClick={() => runTest("Profile Fetch", testProfileFetch)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-[#37322F] text-white rounded-lg hover:bg-[#2a2520] transition disabled:opacity-50"
+            >
+              Test Profile Fetch
+            </button>
+            
+            <button
+              onClick={() => runTest("Project Fetch", testProjectFetch)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-[#37322F] text-white rounded-lg hover:bg-[#2a2520] transition disabled:opacity-50"
+            >
+              Test Project Fetch
+            </button>
+            
+            <button
+              onClick={() => runTest("Project Creation", testProjectCreation)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-[#37322F] text-white rounded-lg hover:bg-[#2a2520] transition disabled:opacity-50"
+            >
+              Test Project Creation
+            </button>
+            
+            <button
+              onClick={() => runTest("View Increment", testViewIncrement)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-[#37322F] text-white rounded-lg hover:bg-[#2a2520] transition disabled:opacity-50"
+            >
+              Test View Increment
+            </button>
+            
+            <button
+              onClick={() => runTest("Project View Increment", testProjectViewIncrement)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-[#37322F] text-white rounded-lg hover:bg-[#2a2520] transition disabled:opacity-50"
+            >
+              Test Project View Increment
+            </button>
+            
+            <button
+              onClick={() => runTest("Project Upvote", testProjectUpvote)}
+              disabled={isLoading}
+              className="w-full px-4 py-2 bg-[#37322F] text-white rounded-lg hover:bg-[#2a2520] transition disabled:opacity-50"
+            >
+              Test Project Upvote
+            </button>
+          </div>
+          
+          {testResult && (
+            <div className="mt-6 p-4 bg-[#F7F5F3] rounded-lg">
+              <p className="text-[#37322F] font-mono text-sm">{testResult}</p>
             </div>
           )}
         </div>
-
-        {/* Featured Builders */}
-        <div className="bg-white p-6 rounded-lg border border-[#E0DEDB] mb-8">
-          <h2 className="text-xl font-semibold text-[#37322F] mb-4">Today's Featured Builders</h2>
-          <div className="space-y-2 text-sm">
-            {featured.length > 0 ? (
-              featured.map((user) => (
-                <div key={user.id} className="p-3 bg-[#F7F5F3] rounded">
-                  <p className="font-semibold text-[#37322F]">{user.displayName}</p>
-                  <p className="text-[#605A57]">ID: {user.id}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-[#605A57]">No featured builders</p>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="bg-white p-6 rounded-lg border border-[#E0DEDB] mb-8">
-          <h2 className="text-xl font-semibold text-[#37322F] mb-4">Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={handleSeedMockData}
-              className="px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition"
-            >
-              Seed Mock Data
-            </button>
-            <button
-              onClick={handleSimulateTraffic}
-              className="px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
-            >
-              Simulate Traffic (100 events)
-            </button>
-            <button
-              onClick={handleResetData}
-              className="px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition"
-            >
-              Reset All Data
-            </button>
-          </div>
-        </div>
-
-        {/* Logs */}
-        <div className="bg-white p-6 rounded-lg border border-[#E0DEDB]">
-          <h2 className="text-xl font-semibold text-[#37322F] mb-4">Activity Log</h2>
-          <div className="bg-[#F7F5F3] p-4 rounded h-48 overflow-y-auto font-mono text-xs text-[#605A57]">
-            {logs.length > 0 ? (
-              logs.map((log, idx) => (
-                <div key={idx} className="mb-1">
-                  {log}
-                </div>
-              ))
-            ) : (
-              <p>No activity yet</p>
-            )}
+        
+        <div className="bg-white rounded-lg border border-[#E0DEDB] p-6">
+          <h2 className="text-xl font-semibold text-[#37322F] mb-4">User Data</h2>
+          <p className="text-[#605A57] mb-4">Total users: {users.length}</p>
+          
+          <div className="max-h-96 overflow-y-auto">
+            {users.map((user) => (
+              <div key={user.id} className="border-b border-[#E0DEDB] py-3">
+                <p className="font-medium text-[#37322F]">{user.displayName} (@{user.username})</p>
+                <p className="text-sm text-[#605A57]">Views: {user.views} | Upvotes: {user.upvotes} | Projects: {user.projects.length}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

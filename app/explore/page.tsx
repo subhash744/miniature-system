@@ -1,9 +1,10 @@
-"use client"
+"use client";
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Navigation from "@/components/navigation"
 import { getAllUsers, getLeaderboard, type UserProfile } from "@/lib/storage"
+import { getTrendingProjectsFromSupabase } from "@/lib/projectHelpers"
 import { motion } from "framer-motion"
 import { getUserBadges } from "@/lib/badges"
 import { TrendingUp, Award, Shuffle, Tag, Users } from "lucide-react"
@@ -11,28 +12,35 @@ import { TrendingUp, Award, Shuffle, Tag, Users } from "lucide-react"
 export default function ExplorePage() {
   const router = useRouter()
   const [users, setUsers] = useState<UserProfile[]>([])
+  const [trendingProjects, setTrendingProjects] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
 
   useEffect(() => {
-    const allUsers = getAllUsers()
-    setUsers(allUsers)
-    setIsLoading(false)
+    const fetchData = async () => {
+      // Fetch users
+      const allUsers = await getAllUsers()
+      setUsers(allUsers)
+      
+      // Fetch trending projects from Supabase
+      try {
+        const projectsResult = await getTrendingProjectsFromSupabase(10)
+        if (projectsResult.success && projectsResult.data) {
+          setTrendingProjects(projectsResult.data)
+        }
+      } catch (error) {
+        console.error("Error fetching trending projects:", error)
+      }
+      
+      setIsLoading(false)
+    }
+    
+    fetchData()
   }, [])
 
   // Get featured profiles (hall of famers)
   const featuredProfiles = useMemo(() => {
     return users.filter(user => user.hallOfFamer).slice(0, 5)
-  }, [users])
-
-  // Get trending projects (most upvoted projects)
-  const trendingProjects = useMemo(() => {
-    const allProjects = users.flatMap(user => 
-      user.projects.map(project => ({ ...project, user }))
-    )
-    return allProjects
-      .sort((a, b) => b.upvotes - a.upvotes)
-      .slice(0, 5)
   }, [users])
 
   // Get top badges this week
@@ -185,12 +193,12 @@ export default function ExplorePage() {
                     >
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#E0DEDB] to-[#D0CECC] flex items-center justify-center">
                         <span className="font-semibold text-[#37322F]">
-                          {user.displayName.charAt(0)}
+                          {user.displayName?.charAt(0) || user.username?.charAt(0) || 'U'}
                         </span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-[#37322F]">{user.displayName}</h3>
-                        <p className="text-sm text-[#605A57]">@{user.username}</p>
+                        <h3 className="font-semibold text-[#37322F]">{user.displayName || user.username || 'Unknown User'}</h3>
+                        <p className="text-sm text-[#605A57]">@{user.username || 'unknown'}</p>
                         <div className="flex gap-2 mt-1">
                           <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
                             Hall of Famer
@@ -233,7 +241,7 @@ export default function ExplorePage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
                       className="p-4 rounded-lg hover:bg-[#F7F5F3] cursor-pointer transition"
-                      onClick={() => router.push(`/profile/${project.user.id}`)}
+                      onClick={() => router.push(`/profile/${project.profile_id}`)}
                     >
                       <h3 className="font-semibold text-[#37322F] mb-1">{project.title}</h3>
                       <p className="text-sm text-[#605A57] line-clamp-2 mb-2">
@@ -241,7 +249,7 @@ export default function ExplorePage() {
                       </p>
                       <div className="flex justify-between items-center">
                         <p className="text-xs text-[#605A57]">
-                          by {project.user.displayName}
+                          by {project.user?.displayName || project.user?.username}
                         </p>
                         <div className="flex gap-3 text-xs text-[#605A57]">
                           <span>{project.views} views</span>
@@ -347,12 +355,19 @@ export default function ExplorePage() {
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E0DEDB] to-[#D0CECC] flex items-center justify-center">
                       <span className="font-semibold text-[#37322F] text-sm">
-                        {user.displayName.charAt(0)}
+                        {user.displayName?.charAt(0) || user.username?.charAt(0) || 'U'}
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-[#37322F]">{user.displayName}</h3>
-                      <p className="text-sm text-[#605A57]">@{user.username}</p>
+                      <h3 className="font-semibold text-[#37322F]">{user.displayName || user.username || 'Unknown User'}</h3>
+                      <p className="text-sm text-[#605A57]">@{user.username || 'unknown'}</p>
+                      <div className="flex gap-1 mt-1">
+                        {user.interests?.slice(0, 2).map((interest, idx) => (
+                          <span key={idx} className="text-xs px-1.5 py-0.5 bg-[#E0DEDB] text-[#37322F] rounded">
+                            {interest}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -386,14 +401,14 @@ export default function ExplorePage() {
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E0DEDB] to-[#D0CECC] flex items-center justify-center">
                       <span className="font-semibold text-[#37322F] text-sm">
-                        {user.displayName.charAt(0)}
+                        {user.displayName?.charAt(0) || user.username?.charAt(0) || 'U'}
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-[#37322F]">{user.displayName}</h3>
-                      <p className="text-sm text-[#605A57]">@{user.username}</p>
+                      <h3 className="font-semibold text-[#37322F]">{user.displayName || user.username || 'Unknown User'}</h3>
+                      <p className="text-sm text-[#605A57]">@{user.username || 'unknown'}</p>
                       <div className="flex gap-1 mt-1">
-                        {user.interests.slice(0, 2).map((interest, idx) => (
+                        {user.interests?.slice(0, 2).map((interest, idx) => (
                           <span key={idx} className="text-xs px-1.5 py-0.5 bg-[#E0DEDB] text-[#37322F] rounded">
                             {interest}
                           </span>

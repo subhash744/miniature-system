@@ -1,165 +1,95 @@
 // Authentication modal for login/signup
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
-import { useRouter } from 'next/navigation'
-import { setCurrentUser, getAllUsers, generateUserId, getTodayDate } from "@/lib/storage"
-import type { UserProfile } from "@/lib/storage"
+import { useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { showErrorNotification, showSuccessNotification } from '@/lib/notifications'
 
 interface AuthModalProps {
+  isOpen: boolean
   onClose: () => void
 }
 
-export default function AuthModal({ onClose }: AuthModalProps) {
-  const router = useRouter()
-  const [isLogin, setIsLogin] = useState(true)
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isSignUp, setIsSignUp] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const { signUp, signIn } = useAuth()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setLoading(true)
 
-    if (!username || !password) {
-      setError("Please fill in all fields")
-      return
-    }
-
-    if (isLogin) {
-      // Login: find user by username
-      const allUsers = getAllUsers()
-      const user = allUsers.find((u) => u.username === username)
-
-      if (!user) {
-        setError("User not found")
-        return
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(email, password)
+        if (error) {
+          showErrorNotification("Sign Up Error", error.message)
+        } else {
+          showSuccessNotification("Check your email", "Please confirm your email to continue.")
+          onClose()
+        }
+      } else {
+        const { error } = await signIn(email, password)
+        if (error) {
+          showErrorNotification("Sign In Error", error.message)
+        } else {
+          onClose()
+        }
       }
-
-      // Simple password check (in real app, would be hashed)
-      if (user.username !== username) {
-        setError("Invalid credentials")
-        return
-      }
-
-      setCurrentUser(user)
-      router.push("/leaderboard")
-      onClose()
-    } else {
-      // Signup: create new user
-      const allUsers = getAllUsers()
-      const userExists = allUsers.some((u) => u.username === username)
-
-      if (userExists) {
-        setError("Username already taken")
-        return
-      }
-
-      // <CHANGE> Updated schema to include all required fields
-      const newUser: UserProfile = {
-        id: generateUserId(),
-        username,
-        displayName: username,
-        quote: "",
-        bio: "",
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-        social: { x: "", github: "", website: "", linkedin: "" },
-        goal: undefined,
-        projects: [],
-        links: [],
-        interests: [],
-        views: 0,
-        upvotes: 0,
-        rank: 0,
-        createdAt: Date.now(),
-        badges: [],
-        streak: 0,
-        lastActiveDate: Date.now(),
-        lastSeenDate: getTodayDate(),
-        dailyViews: [],
-        dailyUpvotes: [],
-        schemaVersion: 4,
-        location: { lat: 0, lng: 0, city: "", country: "" },
-        metrics: { mapClicks: 0 },
-        dailyChallenge: undefined,
-        followers: [],
-        following: [],
-        xp: 0,
-        level: 1,
-        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        referralCount: 0,
-        hideLocation: false,
-        themePreference: "light" as "light" | "dark" | "gradient",
-        dailyStats: [],
-        achievements: [],
-      }
-
-      setCurrentUser(newUser)
-      router.push("/profile-creation") // Redirect to smart onboarding
-      onClose()
+    } catch (err) {
+      showErrorNotification("Error", "An unexpected error occurred")
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-8 max-w-md w-full">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-[#37322F]">{isLogin ? "Log In" : "Sign Up"}</h2>
-          <button onClick={onClose} className="text-[#605A57] hover:text-[#37322F]">
-            ✕
-          </button>
-        </div>
-
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{isSignUp ? 'Sign Up' : 'Sign In'}</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[#37322F] mb-2">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 border border-[#E0DEDB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#37322F]"
-              placeholder="Enter username"
+          <div className="space-y-2">
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={loading}
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[#37322F] mb-2">Password</label>
-            <input
+          <div className="space-y-2">
+            <Input
               type="password"
+              placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-[#E0DEDB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#37322F]"
-              placeholder="Enter password"
+              required
+              disabled={loading}
             />
           </div>
-
-          {error && <div className="text-red-600 text-sm">{error}</div>}
-
-          <button
-            type="submit"
-            className="w-full py-2 bg-[#37322F] text-white rounded-lg font-medium hover:bg-[#2a2520] transition"
-          >
-            {isLogin ? "Log In" : "Sign Up"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-[#605A57]">
-            {isLogin ? "Don't have an account?" : "Already have an account?"}
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin)
-                setError("")
-              }}
-              className="ml-2 text-[#37322F] font-medium hover:underline"
+          <div className="flex flex-col gap-2">
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsSignUp(!isSignUp)}
+              disabled={loading}
             >
-              {isLogin ? "Sign Up" : "Log In"}
-            </button>
-          </p>
-        </div>
-      </div>
-    </div>
+              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

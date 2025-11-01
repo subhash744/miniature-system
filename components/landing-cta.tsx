@@ -2,15 +2,24 @@
 
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
-import AuthModal from "@/components/auth-modal"
+import { useState, useEffect } from "react"
+import { AuthModal } from "@/components/auth-modal"
 import { getCurrentUser } from "@/lib/storage"
 import confetti from "canvas-confetti"
 
 export function LandingCTA() {
   const router = useRouter()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const currentUser = getCurrentUser()
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const user = await getCurrentUser()
+      setCurrentUser(user)
+    }
+    
+    fetchCurrentUser()
+  }, [])
 
   const handleJoinNow = () => {
     confetti({
@@ -50,7 +59,7 @@ export function LandingCTA() {
         </motion.div>
       </section>
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </>
   )
 }

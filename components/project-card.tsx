@@ -2,9 +2,11 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Heart } from "lucide-react"
-import { addProjectUpvote, getCurrentUser, incrementProjectViews } from "@/lib/storage"
+import { addProjectUpvoteToSupabase, incrementProjectViewsInSupabase } from "@/lib/projectHelpers"
+import { useAuth } from "@/contexts/AuthContext"
+import { showErrorNotification } from "@/lib/notifications"
 import confetti from "canvas-confetti"
 
 interface ProjectCardProps {
@@ -16,32 +18,56 @@ interface ProjectCardProps {
 export default function ProjectCard({ project, userId, onUpvote }: ProjectCardProps) {
   const [upvotes, setUpvotes] = useState(project.upvotes)
   const [hasUpvoted, setHasUpvoted] = useState(false)
-  const currentUser = getCurrentUser()
-  const visitorId = currentUser?.id || "anonymous"
+  const [visitorId, setVisitorId] = useState("anonymous")
+  const { user } = useAuth()
 
-  const handleUpvote = (e: React.MouseEvent) => {
+  useEffect(() => {
+    // Set visitor ID from current user or anonymous
+    setVisitorId(user?.id || "anonymous")
+    
+    // Check if user has already upvoted (simplified for now)
+    // In a full implementation, we would check against Supabase
+    setHasUpvoted(false)
+  }, [user])
+
+  const handleUpvote = async (e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     if (hasUpvoted) return
 
-    const success = addProjectUpvote(userId, project.id, visitorId)
-    if (success) {
-      setUpvotes((prev) => prev + 1)
-      setHasUpvoted(true)
+    try {
+      const result = await addProjectUpvoteToSupabase(project.id, visitorId)
+      if (result.success) {
+        setUpvotes((prev: number) => prev + 1)
+        setHasUpvoted(true)
 
-      confetti({
-        particleCount: 20,
-        spread: 45,
-        origin: { x: 0.5, y: 0.5 },
-      })
+        confetti({
+          particleCount: 20,
+          spread: 45,
+          origin: { x: 0.5, y: 0.5 },
+        })
 
-      onUpvote?.()
+        onUpvote?.()
+      } else {
+        showErrorNotification("Error", result.error || "Failed to upvote project")
+      }
+    } catch (error) {
+      console.error("Error upvoting project:", error)
+      showErrorNotification("Error", "An unexpected error occurred while upvoting")
     }
   }
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (project.link) {
-      incrementProjectViews(userId, project.id)
-      window.open(project.link, "_blank")
+      try {
+        await incrementProjectViewsInSupabase(project.id)
+        window.open(project.link, "_blank")
+      } catch (error) {
+        console.error("Error incrementing project views:", error)
+        showErrorNotification("Error", "Failed to track project view")
+        // Still open the link even if view tracking fails
+        window.open(project.link, "_blank")
+      }
     }
   }
 
@@ -50,9 +76,9 @@ export default function ProjectCard({ project, userId, onUpvote }: ProjectCardPr
       onClick={handleClick}
       className="bg-white border border-[#E0DEDB] rounded-lg overflow-hidden hover:shadow-lg transition-all cursor-pointer group"
     >
-      {project.bannerUrl ? (
+      {project.banner_url ? (
         <img
-          src={project.bannerUrl || "/placeholder.svg"}
+          src={project.banner_url || "/placeholder.svg"}
           alt={project.title}
           className="w-full h-40 object-cover group-hover:scale-105 transition-transform"
         />

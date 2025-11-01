@@ -6,10 +6,10 @@ import {
   getAllUsers, 
   getCurrentUser, 
   incrementViewCount, 
-  deleteProject,
   getUserAnalytics,
   AnalyticsData
 } from "@/lib/storage"
+import { getUserProjectsFromSupabase } from "@/lib/projectHelpers"
 import UpvoteButton from "@/components/upvote-button"
 import ProjectCard from "@/components/project-card"
 import ProjectForm from "@/components/project-form"
@@ -95,51 +95,68 @@ export function ImprovedProfile({ userId }: { userId: string }) {
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [editingProject, setEditingProject] = useState<any>(null)
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [userProjects, setUserProjects] = useState<any[]>([])
 
   useEffect(() => {
-    setMounted(true)
-    const current = getCurrentUser()
-    setCurrentUser(current)
+    const fetchData = async () => {
+      setMounted(true)
+      const current = await getCurrentUser()
+      setCurrentUser(current)
 
-    const allUsers = getAllUsers()
-    const user = allUsers.find((u) => u.id === userId)
+      const allUsers = await getAllUsers()
+      const user = allUsers.find((u: UserProfile) => u.id === userId)
 
-    if (!user) {
-      router.push("/leaderboard")
-      return
-    }
+      if (!user) {
+        router.push("/leaderboard")
+        return
+      }
 
-    setProfile(user as UserProfile)
-    setIsOwnProfile(user.id === current?.id)
+      setProfile(user as UserProfile)
+      setIsOwnProfile(user.id === current?.id)
 
-    if (user.id !== current?.id) {
-      incrementViewCount(userId)
+      if (user.id !== current?.id) {
+        await incrementViewCount(userId)
+      }
+      
+      // Get analytics for own profile
+      if (user.id === current?.id) {
+        const userAnalytics = await getUserAnalytics(userId)
+        setAnalytics(userAnalytics)
+      }
+      
+      // Fetch user projects from Supabase
+      try {
+        const projectsResult = await getUserProjectsFromSupabase(userId)
+        if (projectsResult.success && projectsResult.data) {
+          setUserProjects(projectsResult.data)
+        }
+      } catch (error) {
+        console.error("Error fetching user projects:", error)
+      }
     }
     
-    // Get analytics for own profile
-    if (user.id === current?.id) {
-      const userAnalytics = getUserAnalytics(userId)
-      setAnalytics(userAnalytics)
-    }
+    fetchData()
   }, [userId, router])
 
-  const handleDeleteProject = (projectId: string) => {
+  const handleDeleteProject = async (projectId: string) => {
     if (confirm("Delete this project?")) {
-      deleteProject(userId, projectId)
-      setProfile((prev: any) => ({
-        ...prev,
-        projects: prev.projects.filter((p: any) => p.id !== projectId),
-      }))
+      // In a real implementation, we would call deleteProjectFromSupabase
+      // For now, we'll just update the local state
+      setUserProjects(prev => prev.filter((p: any) => p.id !== projectId))
     }
   }
 
-  const handleProjectSaved = () => {
-    const allUsers = getAllUsers()
-    const updated = allUsers.find((u) => u.id === userId)
-    if (updated) {
-      setProfile(updated as UserProfile)
-      setShowProjectForm(false)
-      setEditingProject(null)
+  const handleProjectSaved = async () => {
+    // Refresh projects after saving
+    try {
+      const projectsResult = await getUserProjectsFromSupabase(userId)
+      if (projectsResult.success && projectsResult.data) {
+        setUserProjects(projectsResult.data)
+        setShowProjectForm(false)
+        setEditingProject(null)
+      }
+    } catch (error) {
+      console.error("Error refreshing user projects:", error)
     }
   }
 
@@ -412,7 +429,7 @@ export function ImprovedProfile({ userId }: { userId: string }) {
             >
               <div className="p-5 border-b border-[#E0DEDB] flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-[#37322F] flex items-center gap-2">
-                  <span>Projects ({profile.projects.length})</span>
+                  <span>Projects ({userProjects.length})</span>
                   <span className="text-lg">📁</span>
                 </h2>
                 {isOwnProfile && (
@@ -440,9 +457,9 @@ export function ImprovedProfile({ userId }: { userId: string }) {
                   </div>
                 )}
 
-                {profile.projects.length > 0 ? (
+                {userProjects.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {profile.projects.map((project) => (
+                    {userProjects.map((project) => (
                       <div key={project.id} className="relative">
                         <ProjectCard project={project} userId={userId} />
                         {isOwnProfile && (

@@ -8,25 +8,38 @@ import { useEffect, useState } from "react"
 import { getLeaderboard, addUpvote, canUpvote } from "@/lib/storage"
 import type { LeaderboardEntry } from "@/lib/storage"
 import confetti from "canvas-confetti"
+import { Star, TrendingUp, Award } from "lucide-react"
 
 export function LandingLeaderboardPreview() {
   const router = useRouter()
   const [topUsers, setTopUsers] = useState<LeaderboardEntry[]>([])
   const [upvotedUsers, setUpvotedUsers] = useState<Set<string>>(new Set())
   const [animatingUpvotes, setAnimatingUpvotes] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const leaderboard = getLeaderboard("all-time")
-    setTopUsers(leaderboard.slice(0, 5))
+    const fetchLeaderboard = async () => {
+      setLoading(true)
+      try {
+        const leaderboard = await getLeaderboard("all-time")
+        setTopUsers(leaderboard.slice(0, 5))
+      } catch (error) {
+        console.error("Error fetching leaderboard:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchLeaderboard()
   }, [])
 
-  const handleUpvote = (userId: string, e: React.MouseEvent) => {
+  const handleUpvote = async (userId: string, e: React.MouseEvent) => {
     e.stopPropagation()
 
     const visitorId = "visitor_" + Math.random().toString(36).substr(2, 9)
 
-    if (canUpvote(userId, visitorId)) {
-      addUpvote(userId, visitorId)
+    if (await canUpvote(userId, visitorId)) {
+      await addUpvote(userId, visitorId)
       setUpvotedUsers(new Set([...upvotedUsers, userId]))
 
       confetti({
@@ -37,31 +50,18 @@ export function LandingLeaderboardPreview() {
 
       setAnimatingUpvotes(new Set([...animatingUpvotes, userId]))
       setTimeout(() => {
-        setAnimatingUpvotes((prev) => {
+        setAnimatingUpvotes((prev: Set<string>) => {
           const next = new Set(prev)
           next.delete(userId)
           return next
         })
       }, 600)
 
-      const leaderboard = getLeaderboard("all-time")
+      // Refresh leaderboard
+      const leaderboard = await getLeaderboard("all-time")
       setTopUsers(leaderboard.slice(0, 5))
     }
   }
-
-  useEffect(() => {
-    if (topUsers.length > 0) {
-      topUsers.slice(0, 3).forEach((user, idx) => {
-        setTimeout(() => {
-          confetti({
-            particleCount: 20,
-            spread: 45,
-            origin: { x: 0.5, y: 0.3 },
-          })
-        }, idx * 300)
-      })
-    }
-  }, [topUsers.length])
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -84,7 +84,7 @@ export function LandingLeaderboardPreview() {
   }
 
   return (
-    <section className="py-20 px-6 bg-white">
+    <section className="py-20 px-6 bg-gradient-to-b from-white to-[#F7F5F3]">
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -93,61 +93,151 @@ export function LandingLeaderboardPreview() {
           viewport={{ once: true }}
           className="text-center mb-12"
         >
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-[#37322F] rounded-full">
+              <TrendingUp className="w-8 h-8 text-white" />
+            </div>
+          </div>
           <h2 className="text-4xl md:text-5xl font-serif text-[#37322F] mb-4 font-bold">Live Leaderboard</h2>
-          <p className="text-lg text-[#605A57]">See who's climbing the ranks right now</p>
+          <p className="text-lg text-[#605A57] max-w-2xl mx-auto">See who's climbing the ranks right now. Get discovered and grow your audience.</p>
         </motion.div>
 
-        <motion.div
-          className="space-y-3"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
+        {loading ? (
+          <div className="space-y-3">
+            {[...Array(5)].map((_, idx) => (
+              <div key={idx} className="flex items-center gap-4 p-4 bg-white rounded-lg border border-[#E0DEDB] animate-pulse">
+                <div className="w-8 h-8 bg-[#E0DEDB] rounded-full"></div>
+                <div className="w-12 h-12 bg-[#E0DEDB] rounded-full"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-[#E0DEDB] rounded w-1/3 mb-2"></div>
+                  <div className="h-3 bg-[#E0DEDB] rounded w-1/4"></div>
+                </div>
+                <div className="text-right">
+                  <div className="h-4 bg-[#E0DEDB] rounded w-12 mb-1"></div>
+                  <div className="h-3 bg-[#E0DEDB] rounded w-16"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : topUsers.length > 0 ? (
+          <motion.div
+            className="space-y-3"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            {topUsers.map((user, idx) => (
+              <motion.div
+                key={user.userId}
+                className="flex items-center gap-4 p-4 bg-gradient-to-r from-white to-[#F7F5F3] rounded-lg border border-[#E0DEDB] hover:shadow-lg transition cursor-pointer backdrop-blur-sm group relative overflow-hidden"
+                variants={itemVariants}
+                onClick={() => router.push(`/profile/${user.userId}`)}
+                whileHover={{ 
+                  x: 4, 
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
+                  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+                }}
+                transition={{ duration: 0.2 }}
+              >
+                {/* Rank badge */}
+                <div className="absolute -left-2 -top-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                    idx === 0 ? "bg-yellow-500" : 
+                    idx === 1 ? "bg-gray-400" : 
+                    idx === 2 ? "bg-amber-700" : "bg-[#37322F]"
+                  }`}>
+                    {idx === 0 ? "1" : idx === 1 ? "2" : idx === 2 ? "3" : user.rank}
+                  </div>
+                </div>
+                
+                {/* Avatar and info */}
+                <div className="ml-6 flex items-center gap-4 w-full">
+                  <img 
+                    src={user.avatar || "/placeholder.svg"} 
+                    alt={user.displayName} 
+                    className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-[#37322F] flex items-center gap-2">
+                      {user.displayName}
+                      {user.badges && user.badges.length > 0 && (
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                          {user.badges[0]}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-sm text-[#605A57]">@{user.username}</p>
+                  </div>
+                  
+                  {/* Stats */}
+                  <div className="text-right hidden md:block">
+                    <div className="flex items-center gap-1 text-[#37322F] font-bold">
+                      <Star className="w-4 h-4" />
+                      {user.score.toFixed(0)}
+                    </div>
+                    <div className="text-xs text-[#605A57] flex items-center gap-1">
+                      <Award className="w-3 h-3" />
+                      {user.upvotes} upvotes
+                    </div>
+                  </div>
+                  
+                  {/* Upvote button */}
+                  <motion.button
+                    onClick={(e: React.MouseEvent) => handleUpvote(user.userId, e)}
+                    disabled={upvotedUsers.has(user.userId)}
+                    className="p-2 rounded-full hover:bg-[#F7F5F3] transition disabled:opacity-50"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    animate={animatingUpvotes.has(user.userId) ? { scale: [1, 1.3, 1] } : {}}
+                    transition={{ duration: 0.6 }}
+                  >
+                    <span className="text-2xl">{upvotedUsers.has(user.userId) ? "❤️" : "🤍"}</span>
+                  </motion.button>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="text-center py-12"
+          >
+            <div className="text-5xl mb-4">🏆</div>
+            <h3 className="text-2xl font-semibold text-[#37322F] mb-2">No profiles yet</h3>
+            <p className="text-[#605A57] mb-6">Be the first to create a profile and appear on the leaderboard!</p>
+            <motion.button
+              onClick={() => router.push("/profile-creation")}
+              className="px-6 py-3 bg-[#37322F] text-white rounded-full font-medium hover:bg-[#2a2520] transition flex items-center gap-2 mx-auto"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Star className="w-4 h-4" />
+              Create Your Profile
+            </motion.button>
+          </motion.div>
+        )}
+
+        <motion.div 
+          className="text-center mt-8"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
           viewport={{ once: true }}
         >
-          {topUsers.map((user, idx) => (
-            <motion.div
-              key={user.userId}
-              className="flex items-center gap-4 p-4 bg-gradient-to-r from-[#F7F5F3] to-white rounded-lg border border-[#E0DEDB] hover:shadow-md transition cursor-pointer backdrop-blur-sm group"
-              variants={itemVariants}
-              onClick={() => router.push(`/profile/${user.userId}`)}
-              whileHover={{ x: 4, backgroundColor: "rgba(247, 245, 243, 0.8)" }}
-            >
-              <div className="text-2xl font-bold text-[#37322F] w-8">
-                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : user.rank}
-              </div>
-              <img src={user.avatar || "/placeholder.svg"} alt={user.displayName} className="w-12 h-12 rounded-full" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-[#37322F]">{user.displayName}</h3>
-                <p className="text-sm text-[#605A57]">@{user.username}</p>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-[#37322F]">{user.score.toFixed(0)}</div>
-                <div className="text-xs text-[#605A57]">{user.upvotes} upvotes</div>
-              </div>
-
-              <motion.button
-                onClick={(e) => handleUpvote(user.userId, e)}
-                disabled={upvotedUsers.has(user.userId)}
-                className="ml-2 p-2 rounded-lg hover:bg-[#F7F5F3] transition disabled:opacity-50"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                animate={animatingUpvotes.has(user.userId) ? { scale: [1, 1.3, 1] } : {}}
-                transition={{ duration: 0.6 }}
-              >
-                <span className="text-xl">{upvotedUsers.has(user.userId) ? "❤️" : "🤍"}</span>
-              </motion.button>
-            </motion.div>
-          ))}
+          <motion.button
+            onClick={() => router.push("/leaderboard")}
+            className="px-6 py-3 border border-[#37322F] text-[#37322F] rounded-full font-medium hover:bg-[#37322F] hover:text-white transition flex items-center gap-2 mx-auto"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <TrendingUp className="w-4 h-4" />
+            View Full Leaderboard
+          </motion.button>
         </motion.div>
-
-        <motion.button
-          onClick={() => router.push("/leaderboard")}
-          className="w-full mt-8 py-3 border border-[#E0DEDB] text-[#37322F] rounded-lg font-medium hover:bg-[#F7F5F3] transition"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          View Full Leaderboard
-        </motion.button>
       </div>
     </section>
   )

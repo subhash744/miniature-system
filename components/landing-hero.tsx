@@ -2,14 +2,23 @@
 
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
-import AuthModal from "@/components/auth-modal"
+import { useState, useEffect } from "react"
+import { AuthModal } from "@/components/auth-modal"
 import { getCurrentUser } from "@/lib/storage"
 
 export function LandingHero() {
   const router = useRouter()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const currentUser = getCurrentUser()
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const user = await getCurrentUser()
+      setCurrentUser(user)
+    }
+    
+    fetchCurrentUser()
+  }, [])
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -27,7 +36,7 @@ export function LandingHero() {
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.8, ease: "easeOut" },
+      transition: { duration: 0.8 },
     },
   }
 
@@ -139,7 +148,7 @@ export function LandingHero() {
         </motion.div>
       </section>
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </>
   )
 }

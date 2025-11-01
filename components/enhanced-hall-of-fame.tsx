@@ -32,14 +32,18 @@ export function EnhancedHallOfFame({ initialUsers }: EnhancedHallOfFameProps) {
 
   // Load users on mount
   useEffect(() => {
-    if (!initialUsers) {
-      const allUsers = getAllUsers()
-      setUsers(allUsers)
-      setDisplayUsers(allUsers)
-    } else {
-      setDisplayUsers(initialUsers)
+    const loadUsers = async () => {
+      if (!initialUsers) {
+        const allUsers = await getAllUsers()
+        setUsers(allUsers)
+        setDisplayUsers(allUsers)
+      } else {
+        setDisplayUsers(initialUsers)
+      }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+    
+    loadUsers()
   }, [initialUsers])
 
   // Apply filters and sorting
@@ -215,61 +219,57 @@ export function EnhancedHallOfFame({ initialUsers }: EnhancedHallOfFameProps) {
             onMouseLeave={() => setHoveredUserId(null)}
           >
             {/* Frame */}
-            <div className="bg-white border-8 border-[#37322F] p-4 rounded-lg shadow-lg hover:shadow-2xl transition-shadow duration-200">
+            <div className="bg-white border-8 border-[#37322F] p-4 rounded-lg shadow-lg hover:shadow-2xl transition-shadow duration-200 flex flex-col h-full">
               {/* Avatar */}
-              <div className="w-full aspect-square bg-gradient-to-br from-[#E0DEDB] to-[#D0CECC] rounded-lg flex items-center justify-center mb-4 overflow-hidden">
-                <div className="text-4xl font-semibold text-[#37322F]">
-                  {user.displayName.charAt(0)}
+              <div className="w-full aspect-square bg-gradient-to-br from-[#E0DEDB] to-[#D0CECC] rounded-lg flex items-center justify-center mb-4 overflow-hidden flex-shrink-0">
+                <div className="text-xl font-semibold text-[#37322F]">
+                  {user.displayName?.charAt(0) || user.username?.charAt(0) || 'U'}
                 </div>
               </div>
 
               {/* Info - Always visible in grid view */}
-              <div>
+              <div className="flex-grow flex flex-col">
                 <h3 className="font-semibold text-[#37322F] text-sm mb-1 truncate">
-                  {user.displayName}
+                  {user.displayName || user.username || 'Unknown User'}
                 </h3>
-                <p className="text-xs text-[#605A57] mb-2 line-clamp-2">
+                <p className="text-xs text-[#605A57] mb-2 line-clamp-2 flex-grow">
                   {user.bio || "No bio yet"}
                 </p>
 
-                {/* Badges preview - always show on larger screens to prevent blinking */}
+                {/* Badges preview - always visible */}
                 <div className="mb-2 min-h-[24px]">
-                  {hoveredUserId === user.id && (
-                    <div className="flex flex-wrap gap-1">
-                      {getUserBadges(user)
-                        .filter((badge) => badge.unlocked)
-                        .slice(0, 3)
-                        .map((badge) => (
-                          <span
-                            key={badge.id}
-                            className="text-xs px-1.5 py-0.5 bg-[#37322F] text-white rounded"
-                            title={badge.name}
-                          >
-                            {badge.icon}
-                          </span>
-                        ))}
-                      {getUserBadges(user).filter((badge) => badge.unlocked).length > 3 && (
-                        <span className="text-xs px-1.5 py-0.5 bg-[#605A57] text-white rounded">
-                          +{getUserBadges(user).filter((badge) => badge.unlocked).length - 3}
+                  <div className="flex flex-wrap gap-1">
+                    {getUserBadges(user)
+                      .filter((badge) => badge.unlocked)
+                      .slice(0, 3)
+                      .map((badge) => (
+                        <span
+                          key={badge.id}
+                          className="text-xs px-1.5 py-0.5 bg-[#37322F] text-white rounded"
+                          title={badge.name}
+                        >
+                          {badge.icon}
                         </span>
-                      )}
-                    </div>
-                  )}
+                      ))}
+                    {getUserBadges(user).filter((badge) => badge.unlocked).length > 3 && (
+                      <span className="text-xs px-1.5 py-0.5 bg-[#605A57] text-white rounded">
+                        +{getUserBadges(user).filter((badge) => badge.unlocked).length - 3}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Stats */}
-                <div className="flex gap-2 text-xs text-[#605A57]">
+                <div className="flex gap-2 text-xs text-[#605A57] mt-auto">
                   <span>#{user.rank}</span>
                   <span>{user.views} views</span>
                   <span>{user.upvotes} votes</span>
                 </div>
 
-                {/* View Profile button - always rendered to prevent layout shift */}
+                {/* View Profile button - always visible with subtle hover effect */}
                 <div className="mt-2">
                   <button
-                    className={`w-full py-1.5 bg-[#37322F] text-white text-xs rounded hover:bg-[#2a2520] transition-opacity ${
-                      hoveredUserId === user.id ? 'opacity-100' : 'opacity-0'
-                    }`}
+                    className="w-full py-1.5 bg-[#37322F] text-white text-xs rounded hover:bg-[#2a2520] transition-all duration-200 transform hover:scale-[1.02]"
                   >
                     View Profile
                   </button>
@@ -307,7 +307,7 @@ export function EnhancedHallOfFame({ initialUsers }: EnhancedHallOfFameProps) {
               {/* User Info */}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-[#37322F]">{user.displayName}</h3>
+                  <h3 className="font-semibold text-[#37322F]">{user.displayName || user.username || 'Unknown User'}</h3>
                   <span className="text-xs text-[#605A57]">#{user.rank}</span>
                 </div>
                 <p className="text-sm text-[#605A57] mb-2 line-clamp-1">

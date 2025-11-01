@@ -1,18 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { getDailyChallenge, completeDailyChallenge, getCurrentUser } from "@/lib/storage"
 import confetti from "canvas-confetti"
 
 export function DailyChallengeCard() {
   const [completed, setCompleted] = useState(false)
-  const currentUser = getCurrentUser()
-  const challenge = getDailyChallenge()
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [challenge, setChallenge] = useState<any>(null)
 
-  const handleComplete = () => {
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const user = await getCurrentUser()
+      setCurrentUser(user)
+      const dailyChallenge = getDailyChallenge()
+      setChallenge(dailyChallenge)
+    }
+    
+    fetchCurrentUser()
+  }, [])
+
+  const handleComplete = async () => {
     if (!currentUser) return
-    const success = completeDailyChallenge(currentUser.id)
+    const success = await completeDailyChallenge(currentUser.id)
     if (success) {
       setCompleted(true)
       confetti({
@@ -23,7 +34,7 @@ export function DailyChallengeCard() {
     }
   }
 
-  if (!currentUser) return null
+  if (!currentUser || !challenge) return null
 
   return (
     <motion.div

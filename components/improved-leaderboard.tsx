@@ -4,12 +4,14 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { 
   getCurrentUser, 
-  getLeaderboard, 
-  getFeaturedBuilders, 
   addUpvote, 
   canUpvote,
   incrementViewCount
 } from "@/lib/storage"
+import { 
+  getLeaderboardFromSupabase, 
+  getFeaturedBuildersFromSupabase
+} from "@/lib/leaderboardHelpers"
 import { Search, Heart, Eye, Flame, Link, Calendar } from 'lucide-react'
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
@@ -48,7 +50,7 @@ const badgeColors: Record<string, string> = {
   Prolific: "bg-violet-500 text-white",
 }
 
-export function ImprovedLeaderboard() {
+export default function ImprovedLeaderboard() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [sortBy, setSortBy] = useState<SortBy>("today")
@@ -64,14 +66,26 @@ export function ImprovedLeaderboard() {
 
   // Initialize data
   useEffect(() => {
-    const user = getCurrentUser()
-    setCurrentUser(user)
-    updateLeaderboard("today")
-    setFeatured(getFeaturedBuilders())
+    const init = async () => {
+      const user = await getCurrentUser()
+      setCurrentUser(user)
+      
+      // Fetch leaderboard data from Supabase
+      const leaderboardResult = await getLeaderboardFromSupabase(sortBy)
+      if (leaderboardResult.success && leaderboardResult.data) {
+        setLeaderboard(leaderboardResult.data as LeaderboardEntry[])
+      }
+      
+      // Fetch featured builders from Supabase
+      const featuredResult = await getFeaturedBuildersFromSupabase(3)
+      if (featuredResult.success && featuredResult.data) {
+        setFeatured(featuredResult.data)
+      }
+      
+      setUpvotedUsers(new Set())
+    }
     
-    // Check for saved upvotes
-    const savedUpvotes = JSON.parse(localStorage.getItem("upvotedUsers") || "[]")
-    setUpvotedUsers(new Set(savedUpvotes))
+    init()
     
     // Handle scroll for back to top button
     const handleScroll = () => {
@@ -80,14 +94,19 @@ export function ImprovedLeaderboard() {
     
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+  }, [sortBy])
 
   // Update leaderboard when sort changes
-  const updateLeaderboard = useCallback((sort: SortBy) => {
+  const updateLeaderboard = useCallback(async (sort: SortBy) => {
     setIsLoading(true)
     setSortBy(sort)
-    const data = getLeaderboard(sort)
-    setLeaderboard(data)
+    
+    // Fetch updated leaderboard data from Supabase
+    const leaderboardResult = await getLeaderboardFromSupabase(sort)
+    if (leaderboardResult.success && leaderboardResult.data) {
+      setLeaderboard(leaderboardResult.data as LeaderboardEntry[])
+    }
+    
     setVisibleCount(20)
     setIsLoading(false)
   }, [])
@@ -130,17 +149,16 @@ export function ImprovedLeaderboard() {
   }, [leaderboard, searchTerm, sortOption])
 
   // Handle upvote
-  const handleUpvote = (userId: string) => {
+  const handleUpvote = async (userId: string) => {
     const visitorId = "visitor_" + Math.random().toString(36).substr(2, 9)
     
-    if (canUpvote(userId, visitorId)) {
-      addUpvote(userId, visitorId)
+    if (await canUpvote(userId, visitorId)) {
+      await addUpvote(userId, visitorId)
       
       // Update UI
       setUpvotedUsers(prev => {
         const newSet = new Set(prev)
         newSet.add(userId)
-        localStorage.setItem("upvotedUsers", JSON.stringify(Array.from(newSet)))
         return newSet
       })
       
@@ -174,13 +192,13 @@ export function ImprovedLeaderboard() {
       }, 250)
       
       // Update leaderboard data
-      updateLeaderboard(sortBy)
+      await updateLeaderboard(sortBy)
     }
   }
 
   // Handle view profile
-  const handleViewProfile = (userId: string) => {
-    incrementViewCount(userId)
+  const handleViewProfile = async (userId: string) => {
+    await incrementViewCount(userId)
     router.push(`/profile/${userId}`)
   }
 
@@ -242,7 +260,9 @@ export function ImprovedLeaderboard() {
             {(["today", "yesterday", "all-time", "newcomers"] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => updateLeaderboard(tab)}
+                onClick={() => {
+                  updateLeaderboard(tab)
+                }}
                 className={`px-4 py-2 rounded-full font-medium transition ${
                   sortBy === tab
                     ? "bg-[#37322F] text-white"

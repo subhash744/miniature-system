@@ -36,16 +36,20 @@ export function EnhancedAnalyticsDashboard({ userId }: EnhancedAnalyticsDashboar
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-    const currentUser = getCurrentUser()
-    if (!currentUser || currentUser.id !== userId) {
-      router.push("/")
-      return
+    const initDashboard = async () => {
+      setMounted(true)
+      const currentUser = await getCurrentUser()
+      if (!currentUser || currentUser.id !== userId) {
+        router.push("/")
+        return
+      }
+      setUser(currentUser)
+      
+      const analyticsData = await getUserAnalytics(userId)
+      setAnalytics(analyticsData)
     }
-    setUser(currentUser)
     
-    const analyticsData = getUserAnalytics(userId)
-    setAnalytics(analyticsData)
+    initDashboard()
   }, [userId, router])
 
   if (!mounted || !user || !analytics) return null
@@ -97,7 +101,7 @@ export function EnhancedAnalyticsDashboard({ userId }: EnhancedAnalyticsDashboar
             </div>
             <div className="bg-[#F7F5F3] p-4 rounded-lg">
               <div className="text-sm text-[#605A57] mb-1">Links</div>
-              <div className="text-2xl font-bold text-[#37322F]">{user.links.length}</div>
+              <div className="text-2xl font-bold text-[#37322F]">{(user?.links?.length ?? 0)}</div>
               <div className="text-xs text-green-600">↑15%</div>
             </div>
           </div>
@@ -310,10 +314,11 @@ export function EnhancedAnalyticsDashboard({ userId }: EnhancedAnalyticsDashboar
                 </tr>
               </thead>
               <tbody>
-                {user.links.slice(0, 3).map((link: any, index: number) => {
-                  // Simulate click data
-                  const clicks = [45, 32, 12][index] || Math.floor(Math.random() * 50)
-                  const ctr = [19, 14, 5][index] || Math.floor(Math.random() * 20)
+                {(user?.links ? user.links : []).slice(0, 3).map((link: any, index: number) => {
+                  // For a real implementation, this data would come from actual tracking
+                  // For now, we'll show 0s for new users or actual data for existing users
+                  const clicks = user?.metrics?.linkClicks?.[link.url] || 0
+                  const ctr = clicks > 0 ? Math.min(100, Math.floor((clicks / ((user?.views ?? 0) + 1)) * 100)) : 0
                   
                   return (
                     <tr key={index} className="border-b border-[#E0DEDB] hover:bg-gray-50">
@@ -325,6 +330,12 @@ export function EnhancedAnalyticsDashboard({ userId }: EnhancedAnalyticsDashboar
                 })}
               </tbody>
             </table>
+            
+            {(user?.links?.length ?? 0) === 0 && (
+              <div className="text-center py-8 text-[#605A57]">
+                <p>No links added yet. Add links to your profile to track their performance.</p>
+              </div>
+            )}
           </div>
         </div>
 

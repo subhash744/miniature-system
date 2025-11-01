@@ -22,9 +22,13 @@ function SearchResultsContent() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const allUsers = getAllUsers()
-    setUsers(allUsers)
-    setIsLoading(false)
+    const fetchUsers = async () => {
+      const allUsers = await getAllUsers()
+      setUsers(allUsers)
+      setIsLoading(false)
+    }
+    
+    fetchUsers()
   }, [])
 
   useEffect(() => {

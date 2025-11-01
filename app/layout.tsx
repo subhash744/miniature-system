@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, Instrument_Serif } from "next/font/google"
 import "./globals.css"
+import { AuthProvider } from "@/contexts/AuthContext"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -19,7 +20,7 @@ const instrumentSerif = Instrument_Serif({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://rigeo.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://rigeo.com'),
   title: {
     default: "Rigeo - Builder Community Platform | Connect, Create, and Compete",
     template: "%s | Rigeo"
@@ -40,9 +41,13 @@ export const metadata: Metadata = {
     "indie hackers",
     "product hunt",
     "developer profiles",
-    "coding community"
+    "coding community",
+    "tech startup",
+    "software development",
+    "open source",
+    "developer tools"
   ],
-  authors: [{ name: "Rigeo" }],
+  authors: [{ name: "Rigeo Team" }],
   creator: "Rigeo",
   publisher: "Rigeo",
   formatDetection: {
@@ -53,13 +58,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Rigeo - Builder Community Platform",
     description: "Connect with builders, showcase your projects, and climb the global leaderboard",
-    url: "https://rigeo.com",
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://rigeo.com',
     siteName: "Rigeo",
     locale: "en_US",
     type: "website",
     images: [
       {
-        url: "/placeholder-logo.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "Rigeo - Builder Community Platform",
@@ -70,7 +75,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Rigeo - Builder Community Platform",
     description: "Connect with builders, showcase your projects, and climb the global leaderboard",
-    images: ["/placeholder-logo.png"],
+    images: ["/og-image.png"],
     creator: "@rigeo",
   },
   robots: {
@@ -85,14 +90,20 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: 'google-site-verification-code',
-    yandex: 'yandex-verification-code',
-    yahoo: 'yahoo-verification-code',
+    google: process.env.GOOGLE_SITE_VERIFICATION || '',
   },
   alternates: {
-    canonical: "https://rigeo.com",
+    canonical: process.env.NEXT_PUBLIC_SITE_URL || 'https://rigeo.com',
   },
   category: 'technology',
+  applicationName: 'Rigeo',
+  referrer: 'origin-when-cross-origin',
+  appleWebApp: {
+    title: 'Rigeo',
+    statusBarStyle: 'default',
+    capable: true,
+  },
+  manifest: '/manifest.json',
 }
 
 export default function RootLayout({
@@ -104,17 +115,22 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "Rigeo",
-    "description": "Global builder community platform for developers and creators",
-    "url": "https://rigeo.com",
+    "description": "Global builder community platform for developers and creators to showcase projects, connect with peers, and climb leaderboards",
+    "url": process.env.NEXT_PUBLIC_SITE_URL || 'https://rigeo.com',
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "https://rigeo.com/search?q={search_term_string}",
+      "target": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://rigeo.com'}/search?q={search_term_string}`,
       "query-input": "required name=search_term_string"
     },
     "author": {
       "@type": "Organization",
       "name": "Rigeo"
-    }
+    },
+    "sameAs": [
+      "https://twitter.com/rigeo",
+      "https://github.com/rigeo",
+      // Add social media links when available
+    ]
   }
 
   return (
@@ -143,7 +159,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
       </head>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }

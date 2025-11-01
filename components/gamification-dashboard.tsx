@@ -21,22 +21,26 @@ export function GamificationDashboard() {
   const [xpToNextLevel, setXpToNextLevel] = useState(0)
 
   useEffect(() => {
-    setMounted(true)
-    const currentUser = getCurrentUser()
-    if (currentUser) {
-      setUser(currentUser)
-      // Calculate XP needed for next level (500 XP per level)
-      setXpToNextLevel(currentUser.level * 500)
-    } else {
-      router.push("/")
+    const initDashboard = async () => {
+      setMounted(true)
+      const currentUser = await getCurrentUser()
+      if (currentUser) {
+        setUser(currentUser)
+        // Calculate XP needed for next level (500 XP per level)
+        setXpToNextLevel(currentUser.level * 500)
+      } else {
+        router.push("/")
+      }
     }
+    
+    initDashboard()
   }, [router])
 
-  const handleUseFreeze = () => {
-    if (user && useStreakFreeze(user.id)) {
+  const handleUseFreeze = async () => {
+    if (user && await useStreakFreeze(user.id)) {
       // Refresh user data
-      const allUsers = getAllUsers()
-      const updatedUser = allUsers.find((u) => u.id === user.id)
+      const allUsers = await getAllUsers()
+      const updatedUser = allUsers.find((u: any) => u.id === user.id)
       if (updatedUser) {
         setUser(updatedUser)
       }

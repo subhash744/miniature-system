@@ -69,7 +69,7 @@ export function generateMockData() {
     const streak = Math.floor(Math.random() * 30) + 1
     const createdAt = now - Math.random() * 30 * 24 * 60 * 60 * 1000
 
-    const user = {
+    const user: any = {
       id: userId,
       username: name.username,
       displayName: name.display,
@@ -78,20 +78,46 @@ export function generateMockData() {
       links: [links[Math.floor(Math.random() * links.length)]],
       interests: interests[index % interests.length],
       views,
-      votes,
+      upvotes: votes,
       rank: index + 1,
       createdAt,
       badges: [],
       streak,
       lastActiveDate: now,
+      lastSeenDate: new Date(now).toISOString().split("T")[0],
       dailyViews: Array.from({ length: 7 }, (_, i) => ({
         date: new Date(now - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         count: Math.floor(Math.random() * 50),
       })),
-      dailyVotes: Array.from({ length: 7 }, (_, i) => ({
+      dailyUpvotes: Array.from({ length: 7 }, (_, i) => ({
         date: new Date(now - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         count: Math.floor(Math.random() * 10),
       })),
+      schemaVersion: 4,
+      social: { x: "", github: "", website: "", linkedin: "" },
+      projects: [],
+      dailyChallenge: undefined,
+      followers: [],
+      following: [],
+      xp: Math.floor(Math.random() * 1000),
+      level: Math.floor(Math.random() * 10) + 1,
+      referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      referralCount: 0,
+      hideLocation: false,
+      themePreference: "light",
+      dailyStats: [],
+      achievements: [],
+      streakFreezes: 0,
+      featuredCount: 0,
+      firstUpvoteReceived: votes > 0,
+      linkMasterUnlocked: false,
+      earlyAdopter: true,
+      hallOfFamer: false,
+      creativeUnlocked: false,
+      connectedUnlocked: false,
+      quickRiseUnlocked: false,
+      hotStreakUnlocked: false,
+      rareBadges: []
     }
 
     user.badges = generateBadges(user)

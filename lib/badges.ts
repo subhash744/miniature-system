@@ -337,34 +337,34 @@ export const getAllBadges = (): Badge[] => {
   ]
 }
 
-export const getBadgeProgress = (badgeId: string, user: any): { progress: number; target: number } => {
+export const getBadgeProgress = (badgeId: string, user: any): { progress: number, target: number } => {
   switch (badgeId) {
     case "bronze":
-      return { progress: user.upvotes, target: 10 }
+      return { progress: user.upvotes || 0, target: 10 }
     case "silver":
-      return { progress: user.upvotes, target: 50 }
+      return { progress: user.upvotes || 0, target: 50 }
     case "gold":
-      return { progress: user.upvotes, target: 200 }
+      return { progress: user.upvotes || 0, target: 200 }
     case "diamond":
-      return { progress: user.upvotes, target: 10000 }
+      return { progress: user.upvotes || 0, target: 10000 }
     case "popular":
-      return { progress: user.views, target: 100 }
+      return { progress: user.views || 0, target: 100 }
     case "trending":
-      return { progress: user.views, target: 500 }
+      return { progress: user.views || 0, target: 500 }
     case "viral":
-      return { progress: user.views, target: 2000 }
+      return { progress: user.views || 0, target: 2000 }
     case "consistent":
-      return { progress: user.streak, target: 3 }
+      return { progress: user.streak || 0, target: 3 }
     case "dedicated":
-      return { progress: user.streak, target: 7 }
+      return { progress: user.streak || 0, target: 7 }
     case "unstoppable":
-      return { progress: user.streak, target: 30 }
+      return { progress: user.streak || 0, target: 30 }
     case "builder":
-      return { progress: user.projects.length, target: 3 }
+      return { progress: (user.projects || []).length, target: 3 }
     case "prolific":
-      return { progress: user.projects.length, target: 10 }
+      return { progress: (user.projects || []).length, target: 10 }
     case "link-master":
-      return { progress: user.links.length, target: 5 }
+      return { progress: (user.links || []).length, target: 5 }
     case "hall-of-famer":
       return { progress: user.featuredCount || 0, target: 3 }
     case "connected":
@@ -401,19 +401,19 @@ export const checkBadgeUnlocked = (badgeId: string, user: any): boolean => {
     case "unstoppable":
       return user.streak >= 30
     case "builder":
-      return user.projects.length >= 3
+      return (user.projects || []).length >= 3
     case "prolific":
-      return user.projects.length >= 10
+      return (user.projects || []).length >= 10
     case "first-blood":
       return user.firstUpvoteReceived || user.upvotes > 0
     case "link-master":
-      return user.links.length >= 5
+      return (user.links || []).length >= 5
     case "early-adopter":
       return user.earlyAdopter || user.id.startsWith("user_") // Simplified check
     case "hall-of-famer":
       return (user.featuredCount || 0) >= 3
     case "creative":
-      return user.creativeUnlocked || user.projects.some((p: any) => p.bannerUrl)
+      return user.creativeUnlocked || (user.projects || []).some((p: any) => p.bannerUrl)
     case "connected":
       const socialLinks = user.social || {}
       return Object.values(socialLinks).filter(Boolean).length >= 4

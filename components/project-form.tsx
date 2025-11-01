@@ -3,7 +3,9 @@
 import type React from "react"
 
 import { useState } from "react"
-import { addProject, updateProject } from "@/lib/storage"
+import { addProjectToSupabase, updateProjectInSupabase } from "@/lib/projectHelpers"
+import { useAuth } from "@/contexts/AuthContext"
+import { showErrorNotification, showSuccessNotification } from "@/lib/notifications"
 
 interface ProjectFormProps {
   userId: string
@@ -23,14 +25,49 @@ export default function ProjectForm({ userId, project, onSave, onCancel }: Proje
     e.preventDefault()
     setIsLoading(true)
 
-    if (project) {
-      updateProject(userId, project.id, { title, description, bannerUrl, link })
-    } else {
-      addProject(userId, { title, description, bannerUrl, link })
-    }
+    try {
+      if (project) {
+        // Update existing project
+        const result = await updateProjectInSupabase(userId, { 
+          id: project.id, 
+          title, 
+          description, 
+          bannerUrl, 
+          link 
+        })
+        
+        if (!result.success) {
+          showErrorNotification("Error", result.error || "Failed to update project")
+          setIsLoading(false)
+          return
+        }
+        
+        showSuccessNotification("Success", "Project updated successfully")
+      } else {
+        // Add new project
+        const result = await addProjectToSupabase(userId, { 
+          title, 
+          description, 
+          bannerUrl, 
+          link 
+        })
+        
+        if (!result.success) {
+          showErrorNotification("Error", result.error || "Failed to add project")
+          setIsLoading(false)
+          return
+        }
+        
+        showSuccessNotification("Success", "Project added successfully")
+      }
 
-    setIsLoading(false)
-    onSave?.()
+      setIsLoading(false)
+      onSave?.()
+    } catch (err) {
+      console.error("Error saving project:", err)
+      showErrorNotification("Error", "An unexpected error occurred")
+      setIsLoading(false)
+    }
   }
 
   return (

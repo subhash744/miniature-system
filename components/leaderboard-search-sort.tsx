@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { motion } from "framer-motion"
 import { getAllUsers, getLeaderboard, type LeaderboardEntry } from "@/lib/storage"
 
@@ -13,8 +13,19 @@ interface LeaderboardSearchSortProps {
 export function LeaderboardSearchSort({ onResultsChange }: LeaderboardSearchSortProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"rank" | "upvotes" | "views" | "latest">("rank")
-  const allUsers = getAllUsers()
-  const leaderboard = getLeaderboard("all-time")
+  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      const users = await getAllUsers()
+      setAllUsers(users)
+      const leaderboardData = await getLeaderboard("all-time")
+      setLeaderboard(leaderboardData)
+    }
+    
+    fetchData()
+  }, [])
 
   const filteredResults = useMemo(() => {
     let results = leaderboard
@@ -32,7 +43,7 @@ export function LeaderboardSearchSort({ onResultsChange }: LeaderboardSearchSort
     } else if (sortBy === "views") {
       results = [...results].sort((a, b) => b.views - a.views)
     } else if (sortBy === "latest") {
-      const userMap = new Map(allUsers.map((u) => [u.id, u]))
+      const userMap = new Map(allUsers.map((u: any) => [u.id, u]))
       results = [...results].sort((a, b) => {
         const userA = userMap.get(a.userId)
         const userB = userMap.get(b.userId)
@@ -43,14 +54,16 @@ export function LeaderboardSearchSort({ onResultsChange }: LeaderboardSearchSort
     return results
   }, [searchQuery, sortBy, leaderboard, allUsers])
 
+  useEffect(() => {
+    onResultsChange(filteredResults)
+  }, [filteredResults, onResultsChange])
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
-    onResultsChange(filteredResults)
   }
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSortBy(e.target.value as any)
-    onResultsChange(filteredResults)
   }
 
   return (

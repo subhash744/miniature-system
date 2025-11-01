@@ -11,16 +11,12 @@ import { LandingCTA } from "@/components/landing-cta"
 import { LandingFooter } from "@/components/landing-footer"
 import { LandingSocialProof } from "@/components/landing-social-proof"
 import { LandingFeatures } from "@/components/landing-features"
-import { initializeMockData } from "@/lib/init-mock-data"
-import { updateStreaks } from "@/lib/storage"
 
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    updateStreaks()
-    initializeMockData()
   }, [])
 
   if (!mounted) return null

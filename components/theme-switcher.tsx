@@ -3,18 +3,23 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { getCurrentUser, saveUserProfile } from "@/lib/storage"
+import { saveProfileToSupabase } from "@/lib/supabaseDb"
 
 export function ThemeSwitcher() {
   const [theme, setTheme] = useState<"light" | "dark" | "gradient">("light")
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-    const currentUser = getCurrentUser()
-    if (currentUser) {
-      setTheme(currentUser.themePreference)
-      applyTheme(currentUser.themePreference)
+    const initTheme = async () => {
+      setMounted(true)
+      const currentUser = await getCurrentUser()
+      if (currentUser) {
+        setTheme(currentUser.themePreference)
+        applyTheme(currentUser.themePreference)
+      }
     }
+    
+    initTheme()
   }, [])
 
   const applyTheme = (newTheme: "light" | "dark" | "gradient") => {
@@ -35,13 +40,22 @@ export function ThemeSwitcher() {
     setTheme(newTheme)
     applyTheme(newTheme)
 
-    const currentUser = getCurrentUser()
-    if (currentUser) {
-      currentUser.themePreference = newTheme
-      saveUserProfile(currentUser)
+    const fetchCurrentUser = async () => {
+      const currentUser = await getCurrentUser()
+      if (currentUser) {
+        currentUser.themePreference = newTheme
+        await saveUserProfile(currentUser)
+        
+        // Save to Supabase
+        try {
+          await saveProfileToSupabase(currentUser)
+        } catch (error) {
+          console.error("Failed to save theme preference to Supabase:", error)
+        }
+      }
     }
-
-    localStorage.setItem("theme", newTheme)
+    
+    fetchCurrentUser()
   }
 
   if (!mounted) return null

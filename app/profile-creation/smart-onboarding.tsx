@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, saveUserProfile } from "@/lib/storage"
+import { getCurrentUser, saveUserProfile, setCurrentUser } from "@/lib/storage"
 import { ProfileCompletionCelebration } from "@/components/profile-completion-celebration"
+import { useAuth } from '@/contexts/AuthContext'
+import { showErrorNotification, showSuccessNotification } from '@/lib/notifications'
 
 export default function SmartOnboarding() {
   const router = useRouter()
+  const { user: supabaseUser } = useAuth()
   const [step, setStep] = useState(1)
   const [user, setUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState("")
@@ -21,18 +24,42 @@ export default function SmartOnboarding() {
   const [avatar, setAvatar] = useState("")
   const [usernameError, setUsernameError] = useState("")
   const [showCelebration, setShowCelebration] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    const currentUser = getCurrentUser()
-    if (!currentUser) {
-      router.push("/")
-      return
+    const initOnboarding = async () => {
+      // Redirect if not authenticated
+      if (!supabaseUser) {
+        router.push("/")
+        return
+      }
+      
+      const currentUser = await getCurrentUser()
+      if (!currentUser) {
+        router.push("/")
+        return
+      }
+      
+      // Check if this is a new user (no profile data yet)
+      const isNewUser = !currentUser.displayName || currentUser.displayName === `User ${supabaseUser.id.substring(0, 8)}`
+      
+      setUser(currentUser)
+      
+      // Only set default values for new users
+      if (isNewUser) {
+        setDisplayName(supabaseUser.email?.split('@')[0] || "")
+        setUsername(supabaseUser.email?.split('@')[0] || `user_${supabaseUser.id.substring(0, 8)}`)
+        setAvatar(`https://api.dicebear.com/7.x/avataaars/svg?seed=${supabaseUser.id}`)
+      } else {
+        // Existing user with profile data
+        setDisplayName(currentUser.displayName || "")
+        setUsername(currentUser.username || "")
+        setAvatar(currentUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`)
+      }
     }
-    setUser(currentUser)
-    setDisplayName(currentUser.displayName || "")
-    setUsername(currentUser.username || "")
-    setAvatar(currentUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`)
-  }, [router])
+    
+    initOnboarding()
+  }, [router, supabaseUser])
 
   const checkUsernameAvailability = (username: string) => {
     // In a real app, this would check against the database
@@ -83,8 +110,9 @@ export default function SmartOnboarding() {
     }
   }
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (user) {
+      setSubmitting(true)
       const updatedUser = {
         ...user,
         displayName: displayName || username,
@@ -94,10 +122,42 @@ export default function SmartOnboarding() {
         links: links.filter(link => link.title && link.url),
         avatar,
       }
-      saveUserProfile(updatedUser)
       
-      // Show celebration screen
-      setShowCelebration(true)
+      // Attempt Supabase save with a timeout so UX never gets stuck
+      try {
+        const savePromise = saveUserProfile(updatedUser)
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 5000))
+        const result: any = await Promise.race([savePromise, timeoutPromise])
+
+        if (result && result.timeout) {
+          showErrorNotification("Warning", "Saving is slow. Proceeding and retrying in background.")
+        } else if (result && result.success === false) {
+          showErrorNotification("Warning", result.error || "Cloud save failed. Proceeding anyway.")
+        }
+
+        // Best-effort verification: fetch back the row once
+        try {
+          const { getProfileFromSupabase } = await import('@/lib/supabaseDb')
+          const verify = await getProfileFromSupabase(user.id)
+          if (!verify.success) {
+            console.warn('Profile not verified yet in Supabase:', verify.error)
+          }
+        } catch {}
+
+        showSuccessNotification("Success", "Profile created successfully!")
+      } catch (err) {
+        console.error("Error saving profile:", err)
+        showErrorNotification("Warning", "Saved locally. Cloud save will retry.")
+      } finally {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('rigeo_onboarding_completed', '1')
+          }
+          setCurrentUser(user.id)
+        } catch {}
+        setSubmitting(false)
+        router.replace('/dashboard')
+      }
     }
   }
 
@@ -385,9 +445,10 @@ export default function SmartOnboarding() {
             ) : (
               <button
                 onClick={handleComplete}
-                className="flex-1 py-3 bg-[#37322F] text-white rounded-lg font-medium hover:bg-[#2a2520] transition"
+                disabled={submitting}
+                className={`flex-1 py-3 rounded-lg font-medium transition ${submitting ? 'bg-[#E0DEDB] text-[#605A57] cursor-not-allowed' : 'bg-[#37322F] text-white hover:bg-[#2a2520]'}`}
               >
-                Complete Profile
+                {submitting ? 'Saving...' : 'Complete Profile'}
               </button>
             )}
           </div>

@@ -15,18 +15,23 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "projects" | "engagement">("overview")
 
   useEffect(() => {
-    setMounted(true)
-    const user = getCurrentUser()
-    if (!user) {
-      router.push("/")
-      return
+    const initDashboard = async () => {
+      setMounted(true)
+      const user = await getCurrentUser()
+      if (!user) {
+        router.push("/")
+        return
+      }
+      setCurrentUser(user)
+      const analyticsData = await getUserAnalytics(user.id)
+      setAnalytics(analyticsData)
     }
-    setCurrentUser(user)
-    const analyticsData = getUserAnalytics(user.id)
-    setAnalytics(analyticsData)
+    
+    initDashboard()
   }, [router])
 
-  if (!mounted || !currentUser || !analytics) return null
+  // Only check for currentUser, not analytics, since analytics can be null for new users
+  if (!mounted || !currentUser) return null
 
   const badgeColors: Record<string, string> = {
     Bronze: "bg-amber-700",
@@ -74,7 +79,7 @@ export default function DashboardPage() {
         {activeTab === "projects" && (
           <div className="bg-white p-6 rounded-lg border border-[#E0DEDB]">
             <h2 className="text-lg font-semibold text-[#37322F] mb-6">Project Performance</h2>
-            {analytics.projectStats && analytics.projectStats.length > 0 ? (
+            {analytics?.projectStats && analytics.projectStats.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -111,7 +116,7 @@ export default function DashboardPage() {
             <div className="bg-white p-6 rounded-lg border border-[#E0DEDB]">
               <h2 className="text-lg font-semibold text-[#37322F] mb-4">Daily Engagement</h2>
               <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={analytics.dailyData}>
+                <LineChart data={analytics?.dailyData || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E0DEDB" />
                   <XAxis dataKey="date" stroke="#605A57" />
                   <YAxis stroke="#605A57" />
@@ -125,7 +130,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-white p-6 rounded-lg border border-[#E0DEDB]">
                 <h3 className="text-lg font-semibold text-[#37322F] mb-4">Top Performing Day</h3>
-                {analytics.dailyData.length > 0 &&
+                {analytics?.dailyData && analytics.dailyData.length > 0 &&
                   (() => {
                     const topDay = analytics.dailyData.reduce((max: any, day: any) =>
                       day.views + day.upvotes > max.views + max.upvotes ? day : max,
@@ -142,7 +147,7 @@ export default function DashboardPage() {
 
               <div className="bg-white p-6 rounded-lg border border-[#E0DEDB]">
                 <h3 className="text-lg font-semibold text-[#37322F] mb-4">Engagement Rate</h3>
-                {analytics.totalViews > 0 && (
+                {analytics?.totalViews > 0 && (
                   <div>
                     <p className="text-2xl font-semibold text-[#37322F] mb-2">
                       {((analytics.totalUpvotes / analytics.totalViews) * 100).toFixed(2)}%

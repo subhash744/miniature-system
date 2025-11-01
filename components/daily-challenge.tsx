@@ -17,50 +17,54 @@ export function DailyChallenge({ userId }: DailyChallengeProps) {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    const currentUser = getCurrentUser()
-    setUser(currentUser)
-    
-    if (currentUser) {
-      const dailyChallenge = getDailyChallenge()
-      setChallenge(dailyChallenge)
-      setCompleted(currentUser.dailyChallenge?.date === dailyChallenge.date && currentUser.dailyChallenge?.completed)
+    const fetchCurrentUser = async () => {
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
       
-      // Set progress based on challenge type
-      switch (dailyChallenge.prompt) {
-        case "Add a new project today":
-          setProgress(currentUser.projects.filter(p => 
-            new Date(p.createdAt).toISOString().split('T')[0] === dailyChallenge.date
-          ).length)
-          setTarget(1)
-          break
-        case "Update your goal":
-          setProgress(currentUser.goal ? 1 : 0)
-          setTarget(1)
-          break
-        case "Share your profile":
-          // This would require tracking shares
-          setProgress(0)
-          setTarget(1)
-          break
-        case "Engage with 3 profiles":
-          setProgress(0) // Would need to track profile views
-          setTarget(3)
-          break
-        case "Complete your bio":
-          setProgress(currentUser.bio ? 1 : 0)
-          setTarget(1)
-          break
-        default:
-          setProgress(0)
-          setTarget(1)
+      if (currentUser) {
+        const dailyChallenge = getDailyChallenge()
+        setChallenge(dailyChallenge)
+        setCompleted(currentUser.dailyChallenge?.date === dailyChallenge.date && currentUser.dailyChallenge?.completed)
+        
+        // Set progress based on challenge type
+        switch (dailyChallenge.prompt) {
+          case "Add a new project today":
+            setProgress(currentUser.projects.filter(p => 
+              new Date(p.createdAt).toISOString().split('T')[0] === dailyChallenge.date
+            ).length)
+            setTarget(1)
+            break
+          case "Update your goal":
+            setProgress(currentUser.goal ? 1 : 0)
+            setTarget(1)
+            break
+          case "Share your profile":
+            // This would require tracking shares
+            setProgress(0)
+            setTarget(1)
+            break
+          case "Engage with 3 profiles":
+            setProgress(0) // Would need to track profile views
+            setTarget(3)
+            break
+          case "Complete your bio":
+            setProgress(currentUser.bio ? 1 : 0)
+            setTarget(1)
+            break
+          default:
+            setProgress(0)
+            setTarget(1)
+        }
       }
     }
+    
+    fetchCurrentUser()
   }, [userId])
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (completed) return
     
-    const success = completeDailyChallenge(userId)
+    const success = await completeDailyChallenge(userId)
     if (success) {
       setCompleted(true)
       

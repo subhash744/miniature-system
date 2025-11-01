@@ -11,12 +11,13 @@ export function LandingSocialProof() {
   const [badgeCount] = useState(12) // As per requirements
 
   useEffect(() => {
-    // Simulate live counter - in a real app, this would come from an API
-    setProfileCount(Math.floor(Math.random() * 1000) + 500)
+    const fetchLeaderboard = async () => {
+      // Get top profiles
+      const leaderboard = await getLeaderboard("all-time")
+      setTopProfiles(leaderboard.slice(0, 3))
+    }
     
-    // Get top profiles
-    const leaderboard = getLeaderboard("all-time")
-    setTopProfiles(leaderboard.slice(0, 3))
+    fetchLeaderboard()
   }, [])
 
   const containerVariants = {
@@ -62,7 +63,7 @@ export function LandingSocialProof() {
           viewport={{ once: true }}
         >
           <div className="inline-block p-6 bg-white rounded-lg border border-[#E0DEDB] shadow-sm">
-            <p className="text-lg text-[#605A57] mb-2">Profiles created today</p>
+            <p className="text-lg text-[#605A57] mb-2">Profiles created</p>
             <p className="text-4xl font-bold text-[#37322F]">{profileCount.toLocaleString()}+</p>
           </div>
         </motion.div>
@@ -76,33 +77,39 @@ export function LandingSocialProof() {
         >
           {/* Top Profiles This Week */}
           <motion.div variants={itemVariants}>
-            <h3 className="text-2xl font-semibold text-[#37322F] mb-6 text-center">Top Profiles This Week</h3>
-            <div className="space-y-4">
-              {topProfiles.map((profile, idx) => (
-                <motion.div
-                  key={profile.userId}
-                  className="flex items-center gap-4 p-4 bg-white rounded-lg border border-[#E0DEDB] hover:shadow-md transition"
-                  whileHover={{ x: 4 }}
-                >
-                  <div className="text-xl font-bold text-[#37322F] w-6">
-                    {idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}
-                  </div>
-                  <img 
-                    src={profile.avatar || "/placeholder.svg"} 
-                    alt={profile.displayName} 
-                    className="w-12 h-12 rounded-full" 
-                  />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-[#37322F]">{profile.displayName}</h4>
-                    <p className="text-sm text-[#605A57]">@{profile.username}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-[#37322F]">{profile.score.toFixed(0)}</div>
-                    <div className="text-xs text-[#605A57]">points</div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+            <h3 className="text-2xl font-semibold text-[#37322F] mb-6 text-center">Top Profiles</h3>
+            {topProfiles.length > 0 ? (
+              <div className="space-y-4">
+                {topProfiles.map((profile, idx) => (
+                  <motion.div
+                    key={profile.userId}
+                    className="flex items-center gap-4 p-4 bg-white rounded-lg border border-[#E0DEDB] hover:shadow-md transition"
+                    whileHover={{ x: 4 }}
+                  >
+                    <div className="text-xl font-bold text-[#37322F] w-6">
+                      {idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}
+                    </div>
+                    <img 
+                      src={profile.avatar || "/placeholder.svg"} 
+                      alt={profile.displayName} 
+                      className="w-12 h-12 rounded-full" 
+                    />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-[#37322F]">{profile.displayName}</h4>
+                      <p className="text-sm text-[#605A57]">@{profile.username}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-[#37322F]">{profile.score.toFixed(0)}</div>
+                      <div className="text-xs text-[#605A57]">points</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-white rounded-lg border border-[#E0DEDB]">
+                <p className="text-[#605A57]">No profiles yet. Be the first to join!</p>
+              </div>
+            )}
           </motion.div>
 
           {/* Badge Showcase */}

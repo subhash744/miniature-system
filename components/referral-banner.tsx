@@ -1,10 +1,20 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { getCurrentUser } from "@/lib/storage"
 
 export function ReferralBanner() {
-  const currentUser = getCurrentUser()
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const user = await getCurrentUser()
+      setCurrentUser(user)
+    }
+    
+    fetchCurrentUser()
+  }, [])
 
   if (!currentUser) return null
 

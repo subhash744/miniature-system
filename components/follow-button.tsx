@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { addFollower, removeFollower, getCurrentUser } from "@/lib/storage"
 
@@ -11,15 +11,24 @@ interface FollowButtonProps {
 
 export function FollowButton({ userId, initialFollowing = false }: FollowButtonProps) {
   const [isFollowing, setIsFollowing] = useState(initialFollowing)
-  const currentUser = getCurrentUser()
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
-  const handleToggle = () => {
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const user = await getCurrentUser()
+      setCurrentUser(user)
+    }
+    
+    fetchCurrentUser()
+  }, [])
+
+  const handleToggle = async () => {
     if (!currentUser || currentUser.id === userId) return
 
     if (isFollowing) {
-      removeFollower(userId, currentUser.id)
+      await removeFollower(userId, currentUser.id)
     } else {
-      addFollower(userId, currentUser.id)
+      await addFollower(userId, currentUser.id)
     }
     setIsFollowing(!isFollowing)
   }
